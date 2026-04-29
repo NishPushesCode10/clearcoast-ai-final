@@ -5,3 +5,5 @@ numpy==2.2.5
 opencv-python-headless==4.11.0.86
 matplotlib==3.10.1
 google-generativeai==0.8.5
+azure-monitor-opentelemetry
+opentelemetry-instrumentation-flask
