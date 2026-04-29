@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClearCoast AI — Cloud Removal for Coastal Monitoring</title>
+  <meta name="description" content="AI-powered cloud removal and confidence mapping for satellite coastal monitoring imagery.">
+
+  <!-- Bootstrap 5.3 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Marked.js for Gemini markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    :root {
+      --cc-primary: #0ea5e9;
+      --cc-primary-glow: rgba(14,165,233,.35);
+      --cc-accent: #06b6d4;
+      --cc-surface: #0f172a;
+      --cc-surface-2: #1e293b;
+      --cc-surface-3: #334155;
+      --cc-text: #e2e8f0;
+      --cc-text-muted: #94a3b8;
+      --cc-success: #22c55e;
+      --cc-warn: #f59e0b;
+      --cc-danger: #ef4444;
+      --cc-radius: .75rem;
+      --cc-transition: .25s cubic-bezier(.4,0,.2,1);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--cc-surface);
+      color: var(--cc-text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ---------- Top Navigation ---------- */
+    .cc-nav {
+      background: rgba(15,23,42,.85);
+      backdrop-filter: blur(16px) saturate(180%);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .cc-brand {
+      font-weight: 800; font-size: 1.35rem;
+      background: linear-gradient(135deg, var(--cc-primary), var(--cc-accent));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: -.02em;
+    }
+    .cc-brand i { -webkit-text-fill-color: var(--cc-primary); margin-right: .4rem; }
+
+    /* ---------- Layout ---------- */
+    .cc-wrapper { display: flex; min-height: calc(100vh - 56px); }
+
+    /* Sidebar */
+    .cc-sidebar {
+      width: 320px; flex-shrink: 0;
+      background: var(--cc-surface-2);
+      border-right: 1px solid rgba(255,255,255,.06);
+      padding: 1.5rem;
+      display: flex; flex-direction: column; gap: 1.25rem;
+      overflow-y: auto;
+    }
+    .cc-sidebar h6 {
+      text-transform: uppercase; font-size: .7rem; letter-spacing: .1em;
+      color: var(--cc-text-muted); margin-bottom: .25rem;
+    }
+
+    /* Main content */
+    .cc-main {
+      flex: 1; padding: 2rem; overflow-y: auto;
+    }
+
+    /* ---------- Card / Panel ---------- */
+    .cc-card {
+      background: var(--cc-surface-2);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--cc-radius);
+      padding: 1.25rem;
+      transition: box-shadow var(--cc-transition);
+    }
+    .cc-card:hover { box-shadow: 0 0 24px var(--cc-primary-glow); }
+    .cc-card-title {
+      font-weight: 700; font-size: 1rem; margin-bottom: .75rem;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .cc-card-title i { color: var(--cc-primary); }
+
+    /* ---------- Buttons ---------- */
+    .btn-cc {
+      background: linear-gradient(135deg, var(--cc-primary), var(--cc-accent));
+      border: none; color: #fff; font-weight: 600; border-radius: .5rem;
+      padding: .55rem 1.2rem; transition: transform var(--cc-transition), box-shadow var(--cc-transition);
+    }
+    .btn-cc:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px var(--cc-primary-glow);
+      color: #fff;
+    }
+    .btn-cc:disabled { opacity: .5; pointer-events: none; }
+
+    .btn-outline-cc {
+      background: transparent;
+      border: 1.5px solid var(--cc-primary);
+      color: var(--cc-primary); font-weight: 600; border-radius: .5rem;
+      padding: .55rem 1.2rem; transition: all var(--cc-transition);
+    }
+    .btn-outline-cc:hover {
+      background: var(--cc-primary); color: #fff;
+    }
+
+    /* ---------- Upload area ---------- */
+    .cc-upload-zone {
+      border: 2px dashed var(--cc-surface-3);
+      border-radius: var(--cc-radius);
+      padding: 2rem 1rem; text-align: center;
+      cursor: pointer; transition: border-color var(--cc-transition), background var(--cc-transition);
+    }
+    .cc-upload-zone:hover, .cc-upload-zone.dragover {
+      border-color: var(--cc-primary);
+      background: rgba(14,165,233,.06);
+    }
+    .cc-upload-zone i { font-size: 2rem; color: var(--cc-primary); }
+    .cc-upload-zone p { color: var(--cc-text-muted); font-size: .85rem; margin: .5rem 0 0; }
+
+    /* ---------- Image Comparison ---------- */
+    .cc-img-panel { position: relative; border-radius: var(--cc-radius); overflow: hidden; }
+    .cc-img-panel img {
+      width: 100%; display: block; border-radius: var(--cc-radius);
+      background: var(--cc-surface-3);
+    }
+    .cc-img-label {
+      position: absolute; top: .6rem; left: .6rem;
+      background: rgba(0,0,0,.65); backdrop-filter: blur(8px);
+      font-size: .7rem; font-weight: 600; padding: .25rem .65rem;
+      border-radius: 999px; text-transform: uppercase; letter-spacing: .06em;
+    }
+
+    /* ---------- Stats badges ---------- */
+    .cc-stat {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: var(--cc-surface-3); border-radius: .5rem;
+      padding: .35rem .75rem; font-size: .8rem; font-weight: 600;
+    }
+    .cc-stat i { font-size: .95rem; }
+
+    /* ---------- Alerts ---------- */
+    .cc-alert-item {
+      background: var(--cc-surface-3);
+      border-left: 3px solid var(--cc-warn);
+      border-radius: 0 var(--cc-radius) var(--cc-radius) 0;
+      padding: .65rem 1rem; font-size: .85rem; margin-bottom: .5rem;
+    }
+
+    /* ---------- Gemini ---------- */
+    .cc-gemini-output {
+      background: var(--cc-surface);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--cc-radius);
+      padding: 1rem; max-height: 340px; overflow-y: auto;
+      font-size: .88rem; line-height: 1.6;
+    }
+    .cc-gemini-output h1,.cc-gemini-output h2,.cc-gemini-output h3 { font-size: 1rem; color: var(--cc-primary); }
+
+    /* ---------- Spinner overlay ---------- */
+    .cc-spinner-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(15,23,42,.8); backdrop-filter: blur(6px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
+    }
+    .cc-spinner-overlay .spinner-border { width: 3rem; height: 3rem; color: var(--cc-primary); }
+    .cc-spinner-overlay p { color: var(--cc-text-muted); font-size: .9rem; }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 991px) {
+      .cc-wrapper { flex-direction: column; }
+      .cc-sidebar { width: 100%; border-right: none; border-bottom: 1px solid rgba(255,255,255,.06); }
+    }
+
+    /* Fade-in animation */
+    .fade-up { animation: fadeUp .5s ease both; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--cc-surface-3); border-radius: 999px; }
+
+    /* Hero */
+    .cc-hero {
+      text-align: center; padding: 4rem 1rem;
+    }
+    .cc-hero h1 {
+      font-weight: 800; font-size: 2.2rem;
+      background: linear-gradient(135deg, var(--cc-primary), #a78bfa);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .cc-hero p { color: var(--cc-text-muted); max-width: 540px; margin: .75rem auto 0; font-size: 1rem; }
+
+    /* file name display */
+    .cc-file-name { font-size: .8rem; color: var(--cc-accent); margin-top: .4rem; word-break: break-all; }
+  </style>
+</head>
+
+<body>
+  <!-- ───── Navbar ───── -->
+  <nav class="cc-nav py-2 px-3">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+      <span class="cc-brand"><i class="bi bi-tsunami"></i> ClearCoast AI</span>
+      <span class="text-muted" style="font-size:.78rem;">AI-Powered Coastal Monitoring</span>
+    </div>
+  </nav>
+
+  <!-- ───── Spinner ───── -->
+  <div id="spinner" class="cc-spinner-overlay d-none">
+    <div class="spinner-border" role="status"></div>
+    <p>Processing image — detecting clouds &amp; inpainting…</p>
+  </div>
+
+  <!-- ───── Layout ───── -->
+  <div class="cc-wrapper">
+
+    <!-- ─── Sidebar ─── -->
+    <aside class="cc-sidebar">
+      <div>
+        <h6><i class="bi bi-image me-1"></i> Input Source</h6>
+
+        <button id="btnSample" class="btn btn-cc w-100 mb-3" onclick="useSample()">
+          <i class="bi bi-cloud-sun me-1"></i> Use Sample Cloudy Image
+        </button>
+
+        <div class="cc-upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <i class="bi bi-cloud-arrow-up"></i>
+          <p>Drop image here or click to upload<br><small>JPEG · PNG · TIFF (≤ 32 MB)</small></p>
+        </div>
+        <input type="file" id="fileInput" accept="image/*,.tif,.tiff" class="d-none" onchange="handleFile(this)">
+        <div id="fileName" class="cc-file-name"></div>
+      </div>
+
+      <!-- Stats (shown after processing) -->
+      <div id="statsPanel" class="d-none fade-up">
+        <h6><i class="bi bi-bar-chart me-1"></i> Statistics</h6>
+        <div class="d-flex flex-wrap gap-2">
+          <span class="cc-stat"><i class="bi bi-cloud-fill"></i> Cloud: <span id="cloudPct">—</span>%</span>
+        </div>
+      </div>
+
+      <!-- Alerts -->
+      <div id="alertsPanel" class="d-none fade-up">
+        <h6><i class="bi bi-exclamation-triangle me-1"></i> Alerts</h6>
+        <div id="alertsList"></div>
+      </div>
+
+      <!-- Gemini GenAI -->
+      <div id="geminiPanel" class="{% if not gemini_available %}d-none{% endif %} fade-up">
+        <h6><i class="bi bi-stars me-1"></i> GenAI Assistant</h6>
+        <button id="btnReport" class="btn btn-outline-cc w-100 mb-2" onclick="generateReport()" disabled>
+          <i class="bi bi-file-earmark-text me-1"></i> Generate Report
+        </button>
+        <div class="input-group input-group-sm">
+          <input id="chatInput" type="text" class="form-control bg-dark border-secondary text-light"
+                 placeholder="Ask about this image…" onkeydown="if(event.key==='Enter') askGemini()">
+          <button class="btn btn-outline-cc" onclick="askGemini()"><i class="bi bi-send"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── Main Area ─── -->
+    <main class="cc-main">
+
+      <!-- Hero (visible before processing) -->
+      <section id="heroSection" class="cc-hero">
+        <h1>Cloud-Free Coastal Intelligence</h1>
+        <p>Upload a cloudy satellite image or use the built-in sample — ClearCoast AI will remove clouds, generate a confidence map, and provide AI-powered insights.</p>
+      </section>
+
+      <!-- Results (hidden initially) -->
+      <section id="resultsSection" class="d-none fade-up">
+
+        <!-- Image Comparison -->
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <div class="cc-card">
+              <div class="cc-card-title"><i class="bi bi-image"></i> Original Image</div>
+              <div class="cc-img-panel">
+                <span class="cc-img-label">Original</span>
+                <img id="imgOriginal" src="" alt="Original cloudy satellite image">
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="cc-card">
+              <div class="cc-card-title"><i class="bi bi-stars"></i> AI Clear View</div>
+              <div class="cc-img-panel">
+                <span class="cc-img-label" style="background:rgba(14,165,233,.7);">AI Processed</span>
+                <img id="imgResult" src="" alt="AI cloud-removed image">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Confidence Map -->
+        <div class="row g-3 mb-3">
+          <div class="col-12">
+            <div class="cc-card">
+              <div class="cc-card-title"><i class="bi bi-thermometer-half"></i> Confidence Map</div>
+              <img id="imgConfidence" src="" alt="Confidence heat-map" style="max-height:340px;width:100%;object-fit:contain;border-radius:var(--cc-radius);">
+            </div>
+          </div>
+        </div>
+
+        <!-- Gemini Output -->
+        <div id="geminiOutputCard" class="cc-card d-none mb-3">
+          <div class="cc-card-title"><i class="bi bi-robot"></i> GenAI Output</div>
+          <div id="geminiOutput" class="cc-gemini-output"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    /* ====================================================================
+       ClearCoast AI — Client-side logic
+       ==================================================================== */
+    let currentCloudPct = null;
+    let currentAlerts = [];
+
+    // ── Drag-and-drop ──
+    const dropZone = document.getElementById('dropZone');
+    ['dragenter','dragover'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('dragover'); }));
+    dropZone.addEventListener('drop', ev => {
+      const file = ev.dataTransfer.files[0];
+      if (file) { document.getElementById('fileInput').files = ev.dataTransfer.files; handleFile(document.getElementById('fileInput')); }
+    });
+
+    // ── File selected ──
+    function handleFile(input) {
+      if (!input.files.length) return;
+      document.getElementById('fileName').textContent = input.files[0].name;
+      const fd = new FormData();
+      fd.append('image', input.files[0]);
+      submitImage(fd);
+    }
+
+    // ── Use sample ──
+    function useSample() {
+      const fd = new FormData();
+      fd.append('use_sample', 'true');
+      document.getElementById('fileName').textContent = 'sample_cloudy.tif';
+      submitImage(fd);
+    }
+
+    // ── Submit to /process ──
+    async function submitImage(formData) {
+      showSpinner(true);
+      try {
+        const res = await fetch('/process', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.error) { alert('Error: ' + data.error); return; }
+        renderResults(data);
+      } catch (err) {
+        alert('Request failed: ' + err.message);
+      } finally {
+        showSpinner(false);
+      }
+    }
+
+    // ── Render results ──
+    function renderResults(data) {
+      document.getElementById('heroSection').classList.add('d-none');
+      const sec = document.getElementById('resultsSection');
+      sec.classList.remove('d-none');
+
+      document.getElementById('imgOriginal').src = 'data:image/png;base64,' + data.original_b64;
+      document.getElementById('imgResult').src = 'data:image/png;base64,' + data.result_b64;
+      document.getElementById('imgConfidence').src = 'data:image/png;base64,' + data.confidence_b64;
+
+      // Stats
+      currentCloudPct = data.cloud_pct;
+      currentAlerts = data.alerts || [];
+      document.getElementById('cloudPct').textContent = data.cloud_pct;
+      document.getElementById('statsPanel').classList.remove('d-none');
+
+      // Alerts
+      const al = document.getElementById('alertsList');
+      al.innerHTML = '';
+      currentAlerts.forEach(a => {
+        const div = document.createElement('div');
+        div.className = 'cc-alert-item';
+        div.textContent = a;
+        al.appendChild(div);
+      });
+      document.getElementById('alertsPanel').classList.remove('d-none');
+
+      // Enable Gemini buttons
+      document.getElementById('btnReport').disabled = false;
+
+      // Re-trigger animation
+      sec.classList.remove('fade-up');
+      void sec.offsetWidth;
+      sec.classList.add('fade-up');
+    }
+
+    // ── Gemini Report ──
+    async function generateReport() {
+      if (currentCloudPct === null) return;
+      showGeminiLoading('Generating report…');
+      try {
+        const res = await fetch('/gemini/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cloud_pct: currentCloudPct, alerts: currentAlerts })
+        });
+        const data = await res.json();
+        if (data.error) { showGeminiContent('⚠️ ' + data.error); return; }
+        showGeminiContent(marked.parse(data.report));
+      } catch (err) {
+        showGeminiContent('⚠️ ' + err.message);
+      }
+    }
+
+    // ── Gemini Chat ──
+    async function askGemini() {
+      const input = document.getElementById('chatInput');
+      const q = input.value.trim();
+      if (!q) return;
+      input.value = '';
+      showGeminiLoading('Thinking…');
+      try {
+        const res = await fetch('/gemini/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q, cloud_pct: currentCloudPct })
+        });
+        const data = await res.json();
+        if (data.error) { showGeminiContent('⚠️ ' + data.error); return; }
+        showGeminiContent(marked.parse(data.answer));
+      } catch (err) {
+        showGeminiContent('⚠️ ' + err.message);
+      }
+    }
+
+    // ── Helpers ──
+    function showSpinner(on) {
+      document.getElementById('spinner').classList.toggle('d-none', !on);
+    }
+    function showGeminiLoading(msg) {
+      const card = document.getElementById('geminiOutputCard');
+      card.classList.remove('d-none');
+      document.getElementById('geminiOutput').innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-info"></div> ' + msg + '</div>';
+    }
+    function showGeminiContent(html) {
+      document.getElementById('geminiOutputCard').classList.remove('d-none');
+      document.getElementById('geminiOutput').innerHTML = html;
+    }
+  </script>
+</body>
+</html>
