@@ -9,17 +9,7 @@ from flask import Flask, render_template, request, jsonify
 from model import process_image
 
 
-# === AZURE APPLICATION INSIGHTS ===
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
-from azure.monitor.opentelemetry import configure_azure_monitor
 
-# Configure Azure Monitor (key from environment variable)
-configure_azure_monitor(
-    connection_string=os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
-)
-
-# Instrument Flask
-FlaskInstrumentor().instrument_app(app)
 
 # Optional: Google Gemini
 try:
